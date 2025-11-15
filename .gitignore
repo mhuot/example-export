@@ -34,6 +34,10 @@ Thumbs.db
 # Environment variables
 .env
 
+# HAR Files (contain private meet/team/swimmer data)
+HAR Files/
+*.har
+
 # Distribution/packaging
 dist/
 build/

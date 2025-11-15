@@ -107,8 +107,9 @@ No API keys, client IDs, or special developer access needed!
 ## Export Types
 
 - **result**: Standard meet results
-- **merge-results**: Combined results from multiple sources
+- **advancers**: Swimmers who advanced to next round
 - **merge-entries**: Combined entry data
+- **merge-results**: Combined results from multiple sources
 
 ## Filter Options
 

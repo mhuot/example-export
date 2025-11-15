@@ -96,7 +96,7 @@ class SwimtopiaExporter:
 - Version: v3
 - Content-Type: `application/vnd.api+json` (JSON API spec)
 - Export formats: HY3 (HyTek compatible)
-- Export types: "result", "merge-results", "merge-entries"
+- Export types: "result", "advancers", "merge-entries", "merge-results"
 - Processing time: Typically < 1 second
 
 ## File Descriptions
@@ -142,17 +142,34 @@ download_export(export_url) -> filepath
 
 ### API Endpoints Discovered
 ```
-/v3/meets
-/v3/meets/{id}
-/v3/meets/{id}/athletes
-/v3/meets/{id}/events
-/v3/meets/{id}/export-tasks
-/v3/meets/{id}/export-results-tasks
-/v3/meets/{id}/team-standings
-/v3/meets/{id}/divisions
-/v3/ping (health check)
-/oauth/token (authentication)
+/oauth/token                                 # Authentication
+/v3/ping                                     # Health check
+/v3/users/current                            # Current user info
+/v3/accounts                                 # Account information
+/v3/meets                                    # List meets
+/v3/meets/{id}                              # Meet details
+/v3/meets/{id}/current_user_authority       # User permissions for meet
+/v3/meets/{id}/athletes                     # Athletes in meet
+/v3/meets/{id}/events                       # Events in meet
+/v3/meets/{id}/events/{id}                  # Specific event details
+/v3/meets/{id}/event-nodes                  # Event hierarchy/structure
+/v3/meets/{id}/divisions                    # Age divisions
+/v3/meets/{id}/school-year-groups           # School year groupings
+/v3/meets/{id}/team-groupings               # Team groupings
+/v3/meets/{id}/team-standings               # Team scores/standings
+/v3/meets/{id}/meet-time-standards          # Time standards for meet
+/v3/meets/{id}/record-sets                  # Records (pool, team, etc.)
+/v3/meets/{id}/dq-options                   # Disqualification codes
+/v3/meets/{id}/export-tasks                 # Create/list export tasks
+/v3/meets/{id}/export-tasks/{uuid}          # Check export task status
+/v3/meets/{id}/export-results-tasks         # Alternative export endpoint
 ```
+
+### Query Parameters Discovered
+- **filter[account_id]** - Filter meets by account
+- **filter[session_id]** - Filter events by session
+- **filter[id]** - Filter by specific IDs
+- **include** - Eager load related resources (e.g., "teams,sessions,heats")
 
 ### Response Times from HAR
 - Export task creation: ~194ms
