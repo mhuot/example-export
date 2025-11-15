@@ -17,6 +17,7 @@ __pycache__/
 exports/
 *.zip
 *.hy3
+*.tar.gz
 
 # IDE
 .vscode/
@@ -41,6 +42,9 @@ HAR Files/
 # Development cache (API responses for dev/testing)
 .cache/
 api_cache/
+API_DOCUMENTATION.md
+scoreboard.html
+dev_cache_api.py
 
 # Distribution/packaging
 dist/
