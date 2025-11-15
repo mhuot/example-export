@@ -1,0 +1,2 @@
+# Swimtopia Export Script Requirements
+requests>=2.31.0

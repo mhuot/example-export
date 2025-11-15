@@ -1,0 +1,22 @@
+# Swimtopia API Configuration
+# Copy this file to config.json and fill in your credentials
+
+{
+    "auth": {
+        "username": "your_email@example.com",
+        "password": "your_swimtopia_password"
+    },
+    "export": {
+        "meet_id": "12345",
+        "export_type": "result",
+        "export_format": "hy3",
+        "team_filter": -1,
+        "session_filter": -1,
+        "output_directory": "./exports"
+    },
+    "api": {
+        "base_url": "https://api.swimtopia.org",
+        "max_poll_attempts": 30,
+        "poll_interval_seconds": 2.0
+    }
+}
