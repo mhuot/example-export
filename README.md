@@ -133,6 +133,31 @@ The script includes error handling for:
 - Downloaded files are saved to the configured output directory
 - The OAuth token is automatically included in all API requests after authentication
 
+## Live Scoreboard
+
+Display meet results in real-time with auto-refresh!
+
+```bash
+# Use cached data (development)
+python scoreboard_server.py --mode cache
+
+# Live data with auto-refresh (at the meet)
+python scoreboard_server.py --mode live --meet-id 12345
+
+# Network access for TV/projector display
+python scoreboard_server.py --mode live --host 0.0.0.0 --port 8080
+```
+
+**Features:**
+- Auto-refreshes every 15 seconds in live mode
+- Displays meet name, dates, location, and course type
+- Full heat sheets with lane assignments
+- Swimmer names and relay teams
+- Seed times and results with medal highlighting
+- Professional display ready for TVs/projectors
+
+See [SCOREBOARD_USAGE.md](SCOREBOARD_USAGE.md) for full documentation.
+
 ## Security Considerations
 
 - Store credentials securely - never commit config.json to version control

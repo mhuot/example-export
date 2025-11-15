@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swim Meet Scoreboard - {{ data.mode.upper() }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .scoreboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            padding: 30px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .header .mode-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 1em;
+            font-weight: bold;
+            margin: 10px 0;
+            {% if data.mode == 'live' %}
+            background: rgba(76, 175, 80, 0.3);
+            color: #4caf50;
+            border: 2px solid #4caf50;
+            {% else %}
+            background: rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+            border: 2px solid #ffc107;
+            {% endif %}
+        }
+
+        .header .timestamp {
+            font-size: 1.2em;
+            opacity: 0.8;
+        }
+
+        .meet-details {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+            font-size: 1.1em;
+        }
+
+        .meet-info-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .meet-info-item strong {
+            margin-right: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .meet-details {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .meet-info-item {
+                text-align: center;
+            }
+        }
+
+        .event-container {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .event-container.no-details {
+            opacity: 0.6;
+            padding: 20px;
+        }
+
+        .event-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px 30px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .event-header h2 {
+            font-size: 2.5em;
+            margin-bottom: 5px;
+        }
+
+        .event-header .event-details {
+            font-size: 1.3em;
+            opacity: 0.9;
+        }
+
+        .heat-header {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            font-weight: bold;
+            text-align: center;
+            border-left: 5px solid #ffd700;
+        }
+
+        .lane-results {
+            display: grid;
+            gap: 15px;
+        }
+
+        .lane {
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border-radius: 10px;
+            padding: 20px 25px;
+            display: grid;
+            grid-template-columns: 80px 200px 1fr 150px 120px 100px;
+            align-items: center;
+            gap: 20px;
+            transition: all 0.3s ease;
+            border-left: 5px solid transparent;
+        }
+
+        .lane:hover {
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%);
+            transform: translateX(5px);
+        }
+
+        .lane.place-1 {
+            border-left-color: #ffd700;
+            background: linear-gradient(90deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 255, 255, 0.05) 100%);
+        }
+
+        .lane.place-2 {
+            border-left-color: #c0c0c0;
+            background: linear-gradient(90deg, rgba(192, 192, 192, 0.2) 0%, rgba(255, 255, 255, 0.05) 100%);
+        }
+
+        .lane.place-3 {
+            border-left-color: #cd7f32;
+            background: linear-gradient(90deg, rgba(205, 127, 50, 0.2) 0%, rgba(255, 255, 255, 0.05) 100%);
+        }
+
+        .lane-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            text-align: center;
+            color: #ffd700;
+        }
+
+        .team-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #ffeb3b;
+        }
+
+        .athlete-names {
+            font-size: 1.3em;
+        }
+
+        .relay-swimmers {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .relay-swimmer {
+            display: block;
+            padding: 2px 0;
+        }
+
+        .splits {
+            font-size: 0.9em;
+            opacity: 0.7;
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+
+        .split-time {
+            display: inline-block;
+            margin-right: 12px;
+            padding: 2px 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .seed-time {
+            font-size: 1.4em;
+            text-align: right;
+            opacity: 0.7;
+        }
+
+        .result-time {
+            font-size: 2em;
+            font-weight: bold;
+            text-align: right;
+            color: #4cff4c;
+        }
+
+        .result-time.nt {
+            color: #ff6b6b;
+            font-size: 1.5em;
+        }
+
+        .place {
+            font-size: 2.5em;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .place.first {
+            color: #ffd700;
+        }
+
+        .place.second {
+            color: #c0c0c0;
+        }
+
+        .place.third {
+            color: #cd7f32;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-left: 15px;
+        }
+
+        .status-badge.seeded {
+            background: rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+            border: 2px solid #ffc107;
+        }
+
+        .status-badge.completed {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4caf50;
+            border: 2px solid #4caf50;
+        }
+
+        .status-badge.no-details {
+            background: rgba(158, 158, 158, 0.3);
+            color: #9e9e9e;
+            border: 2px solid #9e9e9e;
+        }
+
+        .no-details-message {
+            text-align: center;
+            font-size: 1.2em;
+            opacity: 0.6;
+            padding: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .lane {
+                grid-template-columns: 60px 150px 1fr 120px 100px 80px;
+                padding: 15px 20px;
+                font-size: 0.9em;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .lane {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                text-align: center;
+            }
+
+            .lane-number, .team-name, .seed-time, .result-time, .place {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="scoreboard">
+        <div class="header">
+            {% if data.meet_info.get('name') %}
+            <h1>{{ data.meet_info.get('name') }}</h1>
+            {% else %}
+            <h1>SWIM MEET SCOREBOARD</h1>
+            {% endif %}
+
+            {% if data.meet_info %}
+            <div class="meet-details">
+                {% if data.meet_info.get('beginAtDate') or data.meet_info.get('endAtDate') %}
+                <div class="meet-info-item">
+                    <strong>📅 Date:</strong>
+                    {% if data.meet_info.get('beginAtDate') == data.meet_info.get('endAtDate') %}
+                        {{ data.meet_info.get('beginAtDate') }}
+                    {% else %}
+                        {{ data.meet_info.get('beginAtDate') }} - {{ data.meet_info.get('endAtDate') }}
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% if data.meet_info.get('location') %}
+                <div class="meet-info-item">
+                    <strong>📍 Location:</strong> {{ data.meet_info.get('location') }}
+                </div>
+                {% endif %}
+
+                {% if data.meet_info.get('swimCourseCode') %}
+                <div class="meet-info-item">
+                    <strong>🏊 Course:</strong>
+                    {% if data.meet_info.get('swimCourseCode') == 'Y' %}
+                        25 Yards (SCY)
+                    {% elif data.meet_info.get('swimCourseCode') == 'S' %}
+                        25 Meters (SCM)
+                    {% elif data.meet_info.get('swimCourseCode') == 'L' %}
+                        50 Meters (LCM)
+                    {% else %}
+                        {{ data.meet_info.get('swimCourseCode') }}
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="mode-badge">{{ data.mode.upper() }} MODE</div>
+            <div class="timestamp">{{ data.timestamp }}</div>
+        </div>
+
+        {% for event in data.events %}
+        {% set event_attrs = event.get('attributes', {}) %}
+        {% set event_id = event.get('id') %}
+        {% set event_num = event_attrs.get('eventNumber', '?') %}
+        {% set event_label = event_attrs.get('label', 'Unknown Event') %}
+        {% set event_type = event_attrs.get('eventType', 'individual') %}
+        {% set state = event_attrs.get('state', 'seeded') %}
+        {% set event_details = data.get_event_details(event_id) %}
+        {% set has_details = event_details|length > 0 %}
+
+        {% if state == 'scored' %}
+            {% set status_text = 'SCORED (No Details)' if not has_details else 'SCORED' %}
+            {% set status_class = 'completed' %}
+        {% elif state == 'partial' %}
+            {% set status_text = 'PARTIAL (No Details)' if not has_details else 'PARTIAL' %}
+            {% set status_class = 'seeded' %}
+        {% elif state == 'unseeded' %}
+            {% set status_text = 'UNSEEDED (No Details)' if not has_details else 'UNSEEDED' %}
+            {% set status_class = 'no-details' %}
+        {% elif has_details %}
+            {% set status_text = state.upper() %}
+            {% set status_class = 'seeded' %}
+        {% else %}
+            {% set status_text = state.upper() + ' (No Details)' %}
+            {% set status_class = 'no-details' %}
+        {% endif %}
+
+        <div class="event-container {{ 'no-details' if not has_details else '' }}">
+            <div class="event-header">
+                <h2>Event #{{ event_num }}</h2>
+                <div class="event-details">
+                    {{ event_label }}
+                    <span class="status-badge {{ status_class }}">{{ status_text }}</span>
+                </div>
+            </div>
+
+            {% if not has_details %}
+            <div class="no-details-message">Heat and lane details not available</div>
+            {% else %}
+            {% set included = event_details.get('included', []) %}
+            {% set heats = {} %}
+            {% set event_records = {} %}
+            {% set relay_positions = {} %}
+            {% set splits_data = {} %}
+
+            {% for item in included %}
+                {% set item_type = item.get('type') %}
+                {% set item_id = item.get('id') %}
+                {% if item_type == 'heat' %}
+                    {% set _ = heats.update({item_id: item.get('attributes', {})}) %}
+                {% elif item_type == 'eventRecord' %}
+                    {% set _ = event_records.update({item_id: item}) %}
+                {% elif item_type == 'relayPositionRecord' %}
+                    {% set _ = relay_positions.update({item_id: item}) %}
+                {% elif item_type == 'split' %}
+                    {% set _ = splits_data.update({item_id: item}) %}
+                {% endif %}
+            {% endfor %}
+
+            {% set records_by_heat = {} %}
+            {% for record_id, record in event_records.items() %}
+                {% set heat_number = record.get('attributes', {}).get('heatNumber') %}
+                {% if heat_number not in records_by_heat %}
+                    {% set _ = records_by_heat.update({heat_number: []}) %}
+                {% endif %}
+                {% set _ = records_by_heat[heat_number].append(record) %}
+            {% endfor %}
+
+            {% for heat_num in records_by_heat.keys()|sort %}
+            {% set records = records_by_heat[heat_num]|sort(attribute='attributes.laneNumber') %}
+
+            <div class="heat-header">HEAT {{ heat_num }}</div>
+            <div class="lane-results">
+                {% for record in records %}
+                {% set attrs = record.get('attributes', {}) %}
+                {% set lane = attrs.get('laneNumber', '?') %}
+                {% set team = attrs.get('teamAbbreviation', '?') %}
+                {% set seed_time = format_time(attrs.get('seedTimeInt')) %}
+                {% set result_time = format_time(attrs.get('officialTimeInt') or attrs.get('resultTimeInt')) %}
+                {% set place = attrs.get('overallPlace') or attrs.get('heatPlace') %}
+
+                {% set place_class = '' %}
+                {% set place_display = '<span class="place">-</span>' %}
+                {% if place == 1 %}
+                    {% set place_class = 'place-1' %}
+                    {% set place_display = '<span class="place first">1st</span>' %}
+                {% elif place == 2 %}
+                    {% set place_class = 'place-2' %}
+                    {% set place_display = '<span class="place second">2nd</span>' %}
+                {% elif place == 3 %}
+                    {% set place_class = 'place-3' %}
+                    {% set place_display = '<span class="place third">3rd</span>' %}
+                {% elif place %}
+                    {% set place_display = '<span class="place">' + place|string + '</span>' %}
+                {% endif %}
+
+                {% if event_type == 'relay' %}
+                    {% set relay_team_name = attrs.get('relayTeamName', team) %}
+                    {% set relay_pos_data = record.get('relationships', {}).get('relayPositionRecords', {}).get('data', []) %}
+                    {% set swimmers_html = [] %}
+                    {% for relay_pos_ref in relay_pos_data|sort(attribute='id') %}
+                        {% set pos_id = relay_pos_ref.get('id') %}
+                        {% if pos_id in relay_positions %}
+                            {% set pos_record = relay_positions[pos_id] %}
+                            {% set pos_num = pos_record.get('attributes', {}).get('relayPosition') %}
+                            {% set athlete_ref = pos_record.get('relationships', {}).get('athlete', {}).get('data') %}
+                            {% if athlete_ref %}
+                                {% set athlete_id = athlete_ref.get('id') %}
+                                {% set athlete_info = data.athletes.get(athlete_id, {}) %}
+                                {% set athlete_name = athlete_info.get('displayName', 'Unknown') %}
+                                {% set _ = swimmers_html.append('<span class="relay-swimmer">' + pos_num|string + '. ' + athlete_name + '</span>') %}
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                    {% set swimmers_str = swimmers_html|join('\n') if swimmers_html else 'No swimmers' %}
+                    {% set athlete_display = '<div class="team-name">' + relay_team_name + '</div><div class="relay-swimmers">' + swimmers_str + '</div>' %}
+                {% else %}
+                    {% set athlete_ref = record.get('relationships', {}).get('athlete', {}).get('data') %}
+                    {% if athlete_ref %}
+                        {% set athlete_id = athlete_ref.get('id') %}
+                        {% set athlete_info = data.athletes.get(athlete_id, {}) %}
+                        {% set athlete_name = athlete_info.get('displayName', 'Unknown') %}
+                    {% else %}
+                        {% set athlete_name = 'No athlete' %}
+                    {% endif %}
+                    {% set athlete_display = '<div class="team-name">' + team + '</div><div>' + athlete_name + '</div>' %}
+                {% endif %}
+
+                <div class="lane {{ place_class }}">
+                    <div class="lane-number">{{ lane }}</div>
+                    <div class="athlete-names">{{ athlete_display|safe }}</div>
+                    <div></div>
+                    <div class="seed-time">Seed: {{ seed_time }}</div>
+                    <div class="result-time {{ 'nt' if result_time == 'NT' else '' }}">{{ result_time }}</div>
+                    {{ place_display|safe }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if data.mode == 'live' %}
+    <script>
+        // Auto-refresh every 15 seconds in live mode
+        setTimeout(function() {
+            location.reload();
+        }, 15000);
+    </script>
+    {% endif %}
+</body>
+</html>
