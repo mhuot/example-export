@@ -38,6 +38,10 @@ Thumbs.db
 HAR Files/
 *.har
 
+# Development cache (API responses for dev/testing)
+.cache/
+api_cache/
+
 # Distribution/packaging
 dist/
 build/

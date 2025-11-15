@@ -1,77 +1,115 @@
 #!/usr/bin/env python3
 """
-Swimtopia API Export Script
-Handles OAuth authentication and export task creation/polling
+Enhanced Swimtopia API Export Script with config file support
 """
 
 import json
 import time
 import uuid
 import requests
+import sys
+import os
 from datetime import datetime
 from typing import Optional, Dict, Any
 from urllib.parse import urljoin
+from pathlib import Path
+import argparse
 
 
 class SwimtopiaExporter:
     """Handles Swimtopia API authentication and export operations"""
 
-    def __init__(self, base_url: str = "https://api.swimtopia.org"):
+    def __init__(
+        self, base_url: str = "https://api.swimtopia.org", verify_ssl: bool = True
+    ):
         self.base_url = base_url
+        self.verify_ssl = verify_ssl
         self.session = requests.Session()
+        self.session.verify = verify_ssl
         self.access_token = None
+        self.token_expires_at = None
 
         # Set default headers
         self.session.headers.update(
             {
                 "Accept": "application/vnd.api+json",
                 "Content-Type": "application/vnd.api+json",
+                "User-Agent": "SwimtopiaExporter/1.0",
             }
         )
 
     def authenticate(self, username: str, password: str) -> bool:
         """
         Authenticate using simplified OAuth 2.0 Password Grant flow
-        (No client_id or client_secret required)
-
-        Args:
-            username: User's Swimtopia username (email)
-            password: User's Swimtopia password
-
-        Returns:
-            True if authentication successful
+        (No client_id or client_secret required for Swimtopia)
         """
         token_url = urljoin(self.base_url, "/oauth/token")
 
-        # OAuth token request - simplified without client credentials
+        # OAuth token request - Swimtopia doesn't require client credentials
         token_data = {
             "grant_type": "password",
             "username": username,
             "password": password,
         }
 
-        # Use form encoding for OAuth endpoint
-        response = requests.post(
-            token_url,
-            data=token_data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-
-        if response.status_code == 200:
-            token_response = response.json()
-            self.access_token = token_response.get("access_token")
-
-            # Update session with auth header
-            self.session.headers.update(
-                {"Authorization": f"Bearer {self.access_token}"}
+        try:
+            # Use form encoding for OAuth endpoint
+            response = requests.post(
+                token_url,
+                data=token_data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                verify=self.verify_ssl,
+                timeout=30,
             )
 
-            print(f"✓ Authentication successful")
-            return True
-        else:
-            print(f"✗ Authentication failed: {response.status_code}")
-            print(f"  Response: {response.text}")
+            if response.status_code == 200:
+                token_response = response.json()
+                self.access_token = token_response.get("access_token")
+
+                # Calculate token expiration if provided
+                expires_in = token_response.get("expires_in")
+                if expires_in:
+                    self.token_expires_at = time.time() + expires_in
+
+                # Update session with auth header
+                self.session.headers.update(
+                    {"Authorization": f"Bearer {self.access_token}"}
+                )
+
+                print(f"✓ Authentication successful")
+                print(f"  Token type: {token_response.get('token_type', 'Bearer')}")
+                if expires_in:
+                    print(f"  Expires in: {expires_in} seconds")
+
+                return True
+            else:
+                print(f"✗ Authentication failed: {response.status_code}")
+
+                # Try to parse error response
+                try:
+                    error_data = response.json()
+                    if "error" in error_data:
+                        print(f"  Error: {error_data.get('error')}")
+                        if "error_description" in error_data:
+                            print(
+                                f"  Description: {error_data.get('error_description')}"
+                            )
+                except:
+                    print(f"  Response: {response.text[:200]}")
+
+                return False
+
+        except requests.exceptions.RequestException as e:
+            print(f"✗ Authentication request failed: {e}")
             return False
+
+    def is_token_valid(self) -> bool:
+        """Check if the current token is still valid"""
+        if not self.access_token:
+            return False
+        if self.token_expires_at and time.time() >= self.token_expires_at:
+            return False
+        return True
 
     def create_export_task(
         self,
@@ -80,22 +118,14 @@ class SwimtopiaExporter:
         export_format: str = "hy3",
         team_filter: int = -1,
         session_filter: int = -1,
+        task_id: Optional[str] = None,
     ) -> Optional[str]:
         """
         Create an export task with client-generated UUID
-
-        Args:
-            meet_id: ID of the meet to export
-            export_type: Type of export ("result", "merge-results", "merge-entries")
-            export_format: Format for export (typically "hy3")
-            team_filter: Team ID to filter (-1 for all teams)
-            session_filter: Session ID to filter (-1 for all sessions)
-
-        Returns:
-            Task ID if successful, None otherwise
         """
-        # Generate client-side UUID
-        task_id = str(uuid.uuid4())
+        # Generate client-side UUID if not provided
+        if not task_id:
+            task_id = str(uuid.uuid4())
 
         export_url = f"{self.base_url}/v3/meets/{meet_id}/export-tasks"
 
@@ -126,23 +156,58 @@ class SwimtopiaExporter:
                         },
                     },
                 },
-                "relationships": {"meet": {"data": {"type": "meet", "id": meet_id}}},
+                "relationships": {
+                    "meet": {"data": {"type": "meet", "id": str(meet_id)}}
+                },
             }
         }
 
         print(f"\n📤 Creating export task...")
+        print(f"   Meet ID: {meet_id}")
         print(f"   Task ID: {task_id}")
         print(f"   Export Type: {export_type}")
         print(f"   Format: {export_format}")
+        print(
+            f"   Team Filter: {'All Teams' if team_filter == -1 else f'Team {team_filter}'}"
+        )
+        print(
+            f"   Session Filter: {'All Sessions' if session_filter == -1 else f'Session {session_filter}'}"
+        )
 
-        response = self.session.post(export_url, json=payload)
+        try:
+            response = self.session.post(export_url, json=payload, timeout=30)
 
-        if response.status_code == 201:
-            print(f"✓ Export task created successfully")
-            return task_id
-        else:
-            print(f"✗ Failed to create export task: {response.status_code}")
-            print(f"  Response: {response.text}")
+            if response.status_code == 201:
+                print(f"✓ Export task created successfully")
+
+                # Parse response for confirmation
+                response_data = response.json()
+                created_state = (
+                    response_data.get("data", {})
+                    .get("attributes", {})
+                    .get("currentState")
+                )
+                print(f"  Initial state: {created_state}")
+
+                return task_id
+            else:
+                print(f"✗ Failed to create export task: {response.status_code}")
+
+                # Try to parse error response
+                try:
+                    error_data = response.json()
+                    if "errors" in error_data:
+                        for error in error_data["errors"]:
+                            print(
+                                f"  Error: {error.get('title', error.get('detail', str(error)))}"
+                            )
+                except:
+                    print(f"  Response: {response.text[:500]}")
+
+                return None
+
+        except requests.exceptions.RequestException as e:
+            print(f"✗ Export task creation failed: {e}")
             return None
 
     def poll_export_status(
@@ -151,53 +216,65 @@ class SwimtopiaExporter:
         task_id: str,
         max_attempts: int = 30,
         poll_interval: float = 2.0,
+        show_progress: bool = True,
     ) -> Optional[Dict[str, Any]]:
         """
         Poll export task status until completion
-
-        Args:
-            meet_id: ID of the meet
-            task_id: ID of the export task
-            max_attempts: Maximum polling attempts
-            poll_interval: Seconds between polls
-
-        Returns:
-            Task data when completed, None if failed
         """
         status_url = f"{self.base_url}/v3/meets/{meet_id}/export-tasks/{task_id}"
 
-        print(f"\n⏳ Polling export status...")
+        if show_progress:
+            print(f"\n⏳ Polling export status...")
+
+        start_time = time.time()
 
         for attempt in range(1, max_attempts + 1):
-            response = self.session.get(status_url)
+            try:
+                response = self.session.get(status_url, timeout=30)
 
-            if response.status_code == 200:
-                data = response.json()
-                task_data = data.get("data", {})
-                attributes = task_data.get("attributes", {})
-                current_state = attributes.get("currentState")
+                if response.status_code == 200:
+                    data = response.json()
+                    task_data = data.get("data", {})
+                    attributes = task_data.get("attributes", {})
+                    current_state = attributes.get("currentState")
 
-                print(f"   Attempt {attempt}: State = {current_state}")
+                    elapsed = time.time() - start_time
 
-                if current_state == "completed":
-                    export_href = attributes.get("exportHref")
-                    export_filename = attributes.get("exportFilename")
+                    if show_progress:
+                        print(
+                            f"   [{elapsed:.1f}s] Attempt {attempt}: State = {current_state}"
+                        )
 
-                    print(f"\n✓ Export completed!")
-                    print(f"   Filename: {export_filename}")
-                    print(f"   Download URL: {export_href}")
+                    if current_state == "completed":
+                        export_href = attributes.get("exportHref")
+                        export_filename = attributes.get("exportFilename")
 
-                    return task_data
+                        print(f"\n✓ Export completed!")
+                        print(f"   Total time: {elapsed:.1f} seconds")
+                        print(f"   Filename: {export_filename}")
+                        if show_progress:
+                            print(f"   Download URL: {export_href[:100]}...")
 
-                elif current_state == "failed":
-                    print(f"\n✗ Export failed")
+                        return task_data
+
+                    elif current_state == "failed":
+                        print(f"\n✗ Export failed")
+                        error_message = attributes.get("errorMessage")
+                        if error_message:
+                            print(f"   Error: {error_message}")
+                        return None
+
+                elif response.status_code == 304:
+                    # Not modified, task still in progress
+                    if show_progress:
+                        elapsed = time.time() - start_time
+                        print(f"   [{elapsed:.1f}s] Attempt {attempt}: No change (304)")
+                else:
+                    print(f"✗ Failed to get status: {response.status_code}")
                     return None
 
-            elif response.status_code == 304:
-                # Not modified, task still in progress
-                print(f"   Attempt {attempt}: No change (304)")
-            else:
-                print(f"✗ Failed to get status: {response.status_code}")
+            except requests.exceptions.RequestException as e:
+                print(f"✗ Status poll failed: {e}")
                 return None
 
             if attempt < max_attempts:
@@ -209,47 +286,72 @@ class SwimtopiaExporter:
         return None
 
     def download_export(
-        self, export_url: str, output_filename: Optional[str] = None
-    ) -> bool:
+        self,
+        export_url: str,
+        output_dir: str = ".",
+        output_filename: Optional[str] = None,
+    ) -> Optional[str]:
         """
         Download the exported file
 
-        Args:
-            export_url: URL from exportHref
-            output_filename: Local filename to save (uses server filename if None)
-
         Returns:
-            True if download successful
+            Path to downloaded file if successful, None otherwise
         """
         print(f"\n📥 Downloading export...")
 
-        # Download with streaming to handle large files
-        response = requests.get(export_url, stream=True)
+        try:
+            # Create output directory if it doesn't exist
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-        if response.status_code == 200:
-            # Get filename from headers or URL if not provided
-            if not output_filename:
-                content_disposition = response.headers.get("content-disposition", "")
-                if "filename=" in content_disposition:
-                    output_filename = content_disposition.split("filename=")[1].strip(
-                        '"'
+            # Download with streaming to handle large files
+            response = requests.get(export_url, stream=True, timeout=60)
+
+            if response.status_code == 200:
+                # Get filename from headers or URL if not provided
+                if not output_filename:
+                    content_disposition = response.headers.get(
+                        "content-disposition", ""
                     )
-                else:
-                    # Extract from URL
-                    output_filename = export_url.split("/")[-1].split("?")[0]
-                    output_filename = requests.utils.unquote(output_filename)
+                    if "filename=" in content_disposition:
+                        output_filename = content_disposition.split("filename=")[
+                            1
+                        ].strip('"')
+                    else:
+                        # Extract from URL
+                        output_filename = export_url.split("/")[-1].split("?")[0]
+                        output_filename = requests.utils.unquote(output_filename)
 
-            # Write file
-            with open(output_filename, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+                output_path = Path(output_dir) / output_filename
 
-            file_size = len(response.content) / 1024 / 1024  # MB
-            print(f"✓ Downloaded: {output_filename} ({file_size:.2f} MB)")
-            return True
-        else:
-            print(f"✗ Download failed: {response.status_code}")
-            return False
+                # Get total size if available
+                total_size = int(response.headers.get("content-length", 0))
+
+                # Write file with progress
+                downloaded = 0
+                with open(output_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+
+                        if total_size > 0:
+                            progress = (downloaded / total_size) * 100
+                            print(
+                                f"\r   Progress: {progress:.1f}% ({downloaded}/{total_size} bytes)",
+                                end="",
+                            )
+
+                print()  # New line after progress
+
+                file_size_mb = output_path.stat().st_size / 1024 / 1024
+                print(f"✓ Downloaded: {output_path} ({file_size_mb:.2f} MB)")
+                return str(output_path)
+            else:
+                print(f"✗ Download failed: {response.status_code}")
+                return None
+
+        except requests.exceptions.RequestException as e:
+            print(f"✗ Download failed: {e}")
+            return None
 
     def list_meets(self, account_id: Optional[str] = None) -> Optional[list]:
         """
@@ -270,34 +372,52 @@ class SwimtopiaExporter:
 
         print(f"\n📋 Fetching available meets...")
 
-        response = self.session.get(meets_url, params=params)
+        try:
+            response = self.session.get(meets_url, params=params, timeout=30)
 
-        if response.status_code == 200:
-            data = response.json()
-            meets = data.get("data", [])
+            if response.status_code == 200:
+                data = response.json()
+                meets = data.get("data", [])
 
-            if not meets:
-                print("  No meets found")
-                return []
+                if not meets:
+                    print("  No meets found")
+                    return []
 
-            print(f"\n✓ Found {len(meets)} meet(s):\n")
+                print(f"\n✓ Found {len(meets)} meet(s):\n")
 
-            for meet in meets:
-                meet_id = meet.get("id")
-                attrs = meet.get("attributes", {})
-                name = attrs.get("name", "Unnamed Meet")
-                start_date = attrs.get("startDate", "Unknown date")
-                meet_type = attrs.get("meetType", "Unknown type")
+                for meet in meets:
+                    meet_id = meet.get("id")
+                    attrs = meet.get("attributes", {})
+                    name = attrs.get("name", "Unnamed Meet")
+                    begin_date = attrs.get("beginAtDate", "N/A")
+                    end_date = attrs.get("endAtDate", "N/A")
+                    location = attrs.get("location") or "N/A"
 
-                print(f"  ID: {meet_id}")
-                print(f"  Name: {name}")
-                print(f"  Date: {start_date}")
-                print(f"  Type: {meet_type}")
-                print()
+                    print(f"  ID: {meet_id}")
+                    print(f"  Name: {name}")
+                    print(f"  Begin: {begin_date}")
+                    print(f"  End: {end_date}")
+                    print(f"  Location: {location}")
+                    print()
 
-            return meets
-        else:
-            print(f"✗ Failed to list meets: {response.status_code}")
+                return meets
+            else:
+                print(f"✗ Failed to list meets: {response.status_code}")
+
+                try:
+                    error_data = response.json()
+                    if "errors" in error_data:
+                        for error in error_data["errors"]:
+                            print(
+                                f"  Error: {error.get('title', error.get('detail', str(error)))}"
+                            )
+                except:
+                    print(f"  Response: {response.text[:500]}")
+
+                return None
+
+        except requests.exceptions.RequestException as e:
+            print(f"✗ List meets failed: {e}")
             return None
 
     def list_export_tasks(self, meet_id: str) -> Optional[list]:
@@ -312,83 +432,164 @@ class SwimtopiaExporter:
         """
         list_url = f"{self.base_url}/v3/meets/{meet_id}/export-tasks"
 
-        response = self.session.get(list_url)
+        try:
+            response = self.session.get(list_url, timeout=30)
 
-        if response.status_code == 200:
-            data = response.json()
-            tasks = data.get("data", [])
+            if response.status_code == 200:
+                data = response.json()
+                tasks = data.get("data", [])
 
-            print(f"\n📋 Found {len(tasks)} export tasks for meet {meet_id}:")
-            for task in tasks:
-                attrs = task.get("attributes", {})
-                print(f"   - {attrs.get('exportType')} ({attrs.get('currentState')})")
-                print(f"     Created: {attrs.get('createdAt')}")
-                print(f"     File: {attrs.get('exportFilename', 'N/A')}")
+                print(f"\n📋 Found {len(tasks)} export tasks for meet {meet_id}:")
+                for task in tasks:
+                    attrs = task.get("attributes", {})
+                    print(
+                        f"   - {attrs.get('exportType')} ({attrs.get('currentState')})"
+                    )
+                    print(f"     Created: {attrs.get('createdAt')}")
+                    print(f"     File: {attrs.get('exportFilename', 'N/A')}")
 
-            return tasks
-        else:
-            print(f"✗ Failed to list tasks: {response.status_code}")
+                return tasks
+            else:
+                print(f"✗ Failed to list tasks: {response.status_code}")
+                return None
+
+        except requests.exceptions.RequestException as e:
+            print(f"✗ List export tasks failed: {e}")
             return None
 
 
-def main():
-    """Example usage of the SwimtopiaExporter"""
+def load_config(config_file: str) -> Dict[str, Any]:
+    """Load configuration from JSON file"""
+    try:
+        with open(config_file, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"✗ Config file not found: {config_file}")
+        print("  Create a config.json file based on config.example.json")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"✗ Invalid JSON in config file: {e}")
+        sys.exit(1)
 
-    # Configuration - just username and password needed!
-    config = {
-        "username": "your_email@example.com",  # Your Swimtopia login email
-        "password": "your_password",  # Your Swimtopia password
-        "meet_id": "12345",  # The meet ID to export
-    }
+
+def main():
+    """Main entry point with argument parsing"""
+
+    parser = argparse.ArgumentParser(description="Export data from Swimtopia")
+    parser.add_argument(
+        "-c",
+        "--config",
+        default="config.json",
+        help="Configuration file (default: config.json)",
+    )
+    parser.add_argument("-m", "--meet-id", help="Override meet ID from config")
+    parser.add_argument(
+        "-t",
+        "--type",
+        choices=["result", "advancers", "merge-entries", "merge-results"],
+        help="Override export type from config",
+    )
+    parser.add_argument("-o", "--output", help="Output directory")
+    parser.add_argument(
+        "--list-meets", action="store_true", help="List available meets"
+    )
+    parser.add_argument(
+        "--list-only", action="store_true", help="Only list existing export tasks"
+    )
+    parser.add_argument(
+        "--no-download", action="store_true", help="Create export but skip download"
+    )
+
+    args = parser.parse_args()
+
+    # Load configuration
+    config = load_config(args.config)
+
+    # Override config with command line arguments
+    if args.meet_id:
+        config["export"]["meet_id"] = args.meet_id
+    if args.type:
+        config["export"]["export_type"] = args.type
+    if args.output:
+        config["export"]["output_directory"] = args.output
 
     # Initialize exporter
-    exporter = SwimtopiaExporter()
+    exporter = SwimtopiaExporter(
+        base_url=config.get("api", {}).get("base_url", "https://api.swimtopia.org"),
+        verify_ssl=config.get("api", {}).get("verify_ssl", True),
+    )
 
-    # Step 1: Authenticate
     print("=== Swimtopia Export Script ===\n")
-    print("Step 1: Authenticating...")
 
-    if not exporter.authenticate(config["username"], config["password"]):
-        print("Authentication failed. Exiting.")
-        return
+    # Authenticate
+    print("Authenticating...")
+    auth_config = config.get("auth", {})
 
-    # Step 2: List existing export tasks (optional)
-    print("\nStep 2: Checking existing exports...")
-    exporter.list_export_tasks(config["meet_id"])
+    if not exporter.authenticate(
+        auth_config.get("username"), auth_config.get("password")
+    ):
+        print("\n✗ Authentication failed. Check your credentials in the config file.")
+        sys.exit(1)
 
-    # Step 3: Create new export task
-    print("\nStep 3: Creating new export...")
+    # List available meets
+    if args.list_meets:
+        meets = exporter.list_meets()
+        sys.exit(0 if meets is not None else 1)
+
+    export_config = config.get("export", {})
+    meet_id = str(export_config.get("meet_id"))
+
+    # List existing tasks
+    if args.list_only:
+        print(f"\nListing export tasks for meet {meet_id}...")
+        tasks = exporter.list_export_tasks(meet_id)
+        sys.exit(0)
+
+    # Create new export
     task_id = exporter.create_export_task(
-        meet_id=config["meet_id"],
-        export_type="result",  # or "merge-results", "merge-entries"
-        export_format="hy3",
-        team_filter=-1,  # All teams
-        session_filter=-1,  # All sessions
+        meet_id=meet_id,
+        export_type=export_config.get("export_type", "result"),
+        export_format=export_config.get("export_format", "hy3"),
+        team_filter=export_config.get("team_filter", -1),
+        session_filter=export_config.get("session_filter", -1),
     )
 
     if not task_id:
-        print("Failed to create export task. Exiting.")
-        return
+        print("\n✗ Failed to create export task.")
+        sys.exit(1)
 
-    # Step 4: Poll for completion
-    print("\nStep 4: Waiting for export to complete...")
+    # Poll for completion
+    api_config = config.get("api", {})
     task_data = exporter.poll_export_status(
-        config["meet_id"], task_id, max_attempts=30, poll_interval=2.0
+        meet_id,
+        task_id,
+        max_attempts=api_config.get("max_poll_attempts", 30),
+        poll_interval=api_config.get("poll_interval_seconds", 2.0),
     )
 
     if not task_data:
-        print("Export did not complete successfully.")
-        return
+        print("\n✗ Export did not complete successfully.")
+        sys.exit(1)
 
-    # Step 5: Download the export
-    print("\nStep 5: Downloading export file...")
-    export_url = task_data.get("attributes", {}).get("exportHref")
+    # Download the export
+    if not args.no_download:
+        export_url = task_data.get("attributes", {}).get("exportHref")
 
-    if export_url:
-        exporter.download_export(export_url)
-        print("\n✅ Export complete!")
+        if export_url:
+            output_dir = export_config.get("output_directory", "./exports")
+            downloaded_file = exporter.download_export(export_url, output_dir)
+
+            if downloaded_file:
+                print(f"\n✅ Export complete!")
+                print(f"   File saved to: {downloaded_file}")
+            else:
+                print("\n✗ Download failed.")
+                sys.exit(1)
+        else:
+            print("\n✗ No download URL available.")
+            sys.exit(1)
     else:
-        print("No download URL available.")
+        print("\n✅ Export created successfully (download skipped)")
 
 
 if __name__ == "__main__":

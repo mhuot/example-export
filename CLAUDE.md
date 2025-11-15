@@ -27,28 +27,22 @@ cp config.example.json config.json
 
 ## Running the Scripts
 
-### Simple Usage
-```bash
-# Edit swimtopia_simple.py with credentials, then:
-python swimtopia_simple.py
-```
-
-### Production Usage
+### Usage
 ```bash
 # List available meets (to find meet IDs)
-python swimtopia_export_enhanced.py --list-meets
+python swimtopia_export.py --list-meets
 
 # With config file
-python swimtopia_export_enhanced.py
+python swimtopia_export.py
 
 # Override meet ID
-python swimtopia_export_enhanced.py -m 12345
+python swimtopia_export.py -m 12345
 
 # Change export type (result, advancers, merge-entries, merge-results)
-python swimtopia_export_enhanced.py -t advancers
+python swimtopia_export.py -t advancers
 
 # List existing exports without creating new one
-python swimtopia_export_enhanced.py --list-only
+python swimtopia_export.py --list-only
 ```
 
 ## Code Quality Requirements
@@ -105,28 +99,10 @@ class SwimtopiaExporter:
 
 ## File Descriptions
 
-### Core Scripts
-- **swimtopia_simple.py** - Simplest implementation, credentials hardcoded
-- **swimtopia_export.py** - Basic class-based implementation
-- **swimtopia_export_enhanced.py** - Full-featured with config file and CLI args
-- **config.json** - Configuration file (NOT example - actual working config)
+- **swimtopia_export.py** - Main export script with all features (config file, CLI arguments, list meets/tasks, create/download exports)
+- **config.json** - Configuration file with credentials (gitignored, not committed)
 - **config.example.json** - Template for users to copy
-
-### Key Functions
-```python
-# Authentication - simplified OAuth
-authenticate(username, password) -> token
-
-# Export creation with client-side UUID
-task_id = str(uuid.uuid4())
-create_export_task(meet_id, task_id, export_type="result")
-
-# Status polling
-poll_export_status(meet_id, task_id) -> task_data
-
-# Download
-download_export(export_url) -> filepath
-```
+- **dev_cache_api.py** - Development tool to cache API responses (gitignored, not committed)
 
 ## Common Issues & Solutions
 
@@ -285,13 +261,9 @@ git commit -m "Add file download with progress indicator"
 git add config.example.json
 git commit -m "Add configuration file template"
 
-# Add enhanced version
-git add swimtopia_export_enhanced.py
-git commit -m "Add enhanced script with CLI arguments"
-
-# Add simple version
-git add swimtopia_simple.py
-git commit -m "Add simplified script for quick usage"
+# Add CLI arguments support
+git add swimtopia_export.py
+git commit -m "Add CLI arguments and config file support"
 
 # Documentation updates
 git add CLAUDE.md

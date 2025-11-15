@@ -21,27 +21,7 @@ Python script to export meet data from Swimtopia's API using your regular Swimto
 pip install requests
 ```
 
-## Quick Start - Simple Script
-
-The easiest way to get started is with `swimtopia_simple.py`:
-
-1. Edit the script and add your credentials:
-```python
-USERNAME = "your_email@example.com"  # Your Swimtopia login email
-PASSWORD = "your_password"           # Your Swimtopia password
-MEET_ID = "12345"                    # The meet ID you want to export
-```
-
-2. Run the script:
-```bash
-python swimtopia_simple.py
-```
-
-That's it! The script will login, create an export, and download it to the `exports/` directory.
-
-## Advanced Usage - Configurable Script
-
-For more control, use `swimtopia_export_enhanced.py`:
+## Usage
 
 1. Copy the example configuration file:
 ```bash
@@ -68,32 +48,32 @@ cp config.example.json config.json
 
 3. Run the script:
 ```bash
-python swimtopia_export_enhanced.py
+python swimtopia_export.py
 ```
 
 ### Command Line Options
 
 ```bash
 # List available meets
-python swimtopia_export_enhanced.py --list-meets
+python swimtopia_export.py --list-meets
 
 # Use a different config file
-python swimtopia_export_enhanced.py -c myconfig.json
+python swimtopia_export.py -c myconfig.json
 
 # Override meet ID
-python swimtopia_export_enhanced.py -m 67890
+python swimtopia_export.py -m 67890
 
 # Change export type (result, advancers, merge-entries, merge-results)
-python swimtopia_export_enhanced.py -t advancers
+python swimtopia_export.py -t advancers
 
 # Specify output directory
-python swimtopia_export_enhanced.py -o ./my_exports
+python swimtopia_export.py -o ./my_exports
 
 # List existing export tasks without creating new one
-python swimtopia_export_enhanced.py --list-only
+python swimtopia_export.py --list-only
 
 # Create export but skip download
-python swimtopia_export_enhanced.py --no-download
+python swimtopia_export.py --no-download
 ```
 
 ## How It Works
