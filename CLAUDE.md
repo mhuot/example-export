@@ -35,14 +35,17 @@ python swimtopia_simple.py
 
 ### Production Usage
 ```bash
+# List available meets (to find meet IDs)
+python swimtopia_export_enhanced.py --list-meets
+
 # With config file
 python swimtopia_export_enhanced.py
 
 # Override meet ID
 python swimtopia_export_enhanced.py -m 12345
 
-# Change export type
-python swimtopia_export_enhanced.py -t merge-results
+# Change export type (result, advancers, merge-entries, merge-results)
+python swimtopia_export_enhanced.py -t advancers
 
 # List existing exports without creating new one
 python swimtopia_export_enhanced.py --list-only
@@ -85,6 +88,7 @@ pylint swimtopia_*.py
 ```python
 class SwimtopiaExporter:
   def authenticate(username, password) -> bool
+  def list_meets(account_id=None) -> list              # NEW: List available meets
   def create_export_task(meet_id, export_type, ...) -> task_id
   def poll_export_status(meet_id, task_id, ...) -> task_data
   def download_export(export_url, output_dir) -> filepath

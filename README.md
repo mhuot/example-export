@@ -74,14 +74,17 @@ python swimtopia_export_enhanced.py
 ### Command Line Options
 
 ```bash
+# List available meets
+python swimtopia_export_enhanced.py --list-meets
+
 # Use a different config file
 python swimtopia_export_enhanced.py -c myconfig.json
 
 # Override meet ID
 python swimtopia_export_enhanced.py -m 67890
 
-# Change export type
-python swimtopia_export_enhanced.py -t merge-results
+# Change export type (result, advancers, merge-entries, merge-results)
+python swimtopia_export_enhanced.py -t advancers
 
 # Specify output directory
 python swimtopia_export_enhanced.py -o ./my_exports
